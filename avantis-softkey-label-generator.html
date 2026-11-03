@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avantis SoftKey &amp; Layer Label Generator — FOH Foundry</title>
+<style>
+  * { box-sizing: border-box; }
+  :root{
+    --label-w: 17mm;
+    --label-h: 7.75mm;
+    --gap-h: 7.23mm;
+    --name-size: 3.2mm;
+  }
+  html,body{ margin:0; padding:0; }
+  body{ font-family:-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#15171a; color:#e7e9ec; }
+
+  /* ---------- CONTROL PANEL ---------- */
+  .panel{ max-width:840px; margin:0 auto; padding:22px 20px 40px; }
+  h1{ font-size:18px; margin:0 0 4px; letter-spacing:.5px; }
+  .sub{ font-size:12px; color:#fff; margin:0 0 18px; }
+  .sub a{ color:#fff; text-decoration:underline; text-underline-offset:2px; }
+  .sub .dim{ color:#8b919a; }
+  .card{ background:#1d2024; border:1px solid #2c3036; border-radius:10px; padding:16px 16px 12px; margin-bottom:16px; }
+  .card h2{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#9aa1aa; margin:0 0 12px; }
+
+  .devsel{ display:flex; gap:10px; }
+  .dev{ flex:1; text-align:center; padding:12px 8px; border-radius:8px; cursor:pointer;
+        background:#121417; border:1px solid #353a41; font-size:14px; font-weight:600; color:#c2c7ce; }
+  .dev small{ display:block; font-weight:400; font-size:11px; color:#7f868f; margin-top:3px; }
+  .dev.active{ border-color:#c0392b; background:#241618; color:#fff; }
+
+  .cols{ display:flex; gap:26px; flex-wrap:wrap; }
+  .colgrp{ flex:1; min-width:190px; }
+  .colgrp h4{ font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:#6f757e; margin:0 0 8px; font-weight:600; }
+  .row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .row label{ width:28px; font-size:12px; color:#7f868f; text-align:right; flex:none; }
+  .row input[type=text]{ flex:1; background:#121417; border:1px solid #353a41; color:#e7e9ec;
+    border-radius:6px; padding:7px 9px; font-size:14px; min-width:0; }
+  .row input[type=text]:focus{ outline:none; border-color:#c0392b; }
+
+  .opts{ display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
+
+  /* toggle switch */
+  .tgl{ display:flex; align-items:center; gap:10px; font-size:13px; color:#c2c7ce; }
+  .tgl .lbl{ color:#7f868f; transition:color .15s; cursor:pointer; user-select:none; }
+  .tgl .lbl.on{ color:#fff; font-weight:600; }
+  .sw{ position:relative; display:inline-block; width:44px; height:24px; flex:none; cursor:pointer; }
+  .sw input{ opacity:0; width:0; height:0; position:absolute; }
+  .sw .track{ position:absolute; inset:0; background:#121417; border:1px solid #353a41;
+              border-radius:24px; cursor:pointer; transition:.15s; }
+  .sw .track:before{ content:""; position:absolute; height:16px; width:16px; left:3px; top:3px;
+                     background:#8b919a; border-radius:50%; transition:.15s; }
+  .sw input:checked + .track{ background:#241618; border-color:#c0392b; }
+  .sw input:checked + .track:before{ transform:translateX(20px); background:#c0392b; }
+  .sw input:focus-visible + .track{ outline:2px solid #c0392b; outline-offset:2px; }
+  .opt{ display:flex; align-items:center; gap:7px; font-size:13px; color:#c2c7ce; }
+  input[type=range]{ accent-color:#c0392b; }
+  .btn{ background:#c0392b; color:#fff; border:none; border-radius:7px; padding:11px 20px;
+        font-size:14px; font-weight:600; cursor:pointer; letter-spacing:.3px; }
+  .btn:hover{ background:#a93226; }
+  .note{ font-size:12px; line-height:1.55; color:#9aa1aa; margin:0 0 8px; }
+  .note b{ color:#d7dbe0; }
+  ul.tips{ margin:6px 0 0; padding-left:18px; }
+  ul.tips li{ font-size:12px; color:#9aa1aa; margin:3px 0; }
+
+  /* ---------- PRINT SHEET ---------- */
+  .sheet{ background:#fff; color:#000; margin:0 auto 40px; padding:12mm; width:210mm; }
+  @media screen{
+    .sheet{ box-shadow:0 0 0 1px #2c3036, 0 12px 40px rgba(0,0,0,.5); border-radius:2px; }
+    /* preview only — shows the paper outline. Never applied in print. */
+    .sheet.pv-a4{ min-height:297mm; }
+    .sheet.pv-us{ min-height:279.4mm; }
+  }
+
+  .ruler-wrap{ margin-bottom:9mm; }
+  .ruler-cap{ font-size:2.6mm; font-family:Arial, sans-serif; margin-bottom:1mm; }
+  .ruler{ position:relative; width:100mm; height:5mm; border-left:.3mm solid #000; border-right:.3mm solid #000; }
+  .ruler .base{ position:absolute; bottom:0; left:0; width:100mm; height:.3mm; background:#000; }
+  .ruler .tick{ position:absolute; bottom:0; width:.25mm; background:#000; }
+  .ruler .t10{ height:3mm; } .ruler .t50{ height:5mm; width:.4mm; }
+
+  .sheet h3{ font-family:Arial, sans-serif; font-size:3.6mm; margin:0 0 1mm; }
+  .sheet .meta{ font-family:Arial, sans-serif; font-size:2.6mm; color:#333; margin:0 0 6mm; }
+  .secthead{ font-family:Arial, sans-serif; font-size:2.9mm; font-weight:bold; color:#000;
+             margin:0 0 3mm; padding-bottom:.8mm; border-bottom:.2mm solid #bbb; }
+  .section{ margin-bottom:9mm; }
+
+  .strips{ display:flex; align-items:flex-start; gap:12mm; flex-wrap:nowrap; }
+  .col{ display:flex; flex-direction:column; align-items:center; flex:none; width:var(--label-w); }
+  .stripbox{ display:flex; flex-direction:column; align-items:center; width:var(--label-w); flex:none; }
+  .blockgap{ height:9mm; flex:none; }
+  .striplab{ font-family:Arial, sans-serif; font-size:2.2mm; color:#555; margin-bottom:1.4mm;
+             width:var(--label-w); text-align:center; white-space:normal; line-height:1.15; }
+  .strip{ width:var(--label-w); display:flex; flex-direction:column; outline:.25mm solid #999; flex:none; }
+  .label{ width:var(--label-w); height:var(--label-h); position:relative; flex:none;
+          display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .label .txt{ font-family:Arial, Helvetica, sans-serif; font-weight:700; text-transform:uppercase;
+               font-size:var(--name-size); line-height:1; letter-spacing:.1mm; color:#000;
+               text-align:center; white-space:nowrap; }
+  .label .num{ position:absolute; top:.4mm; left:.6mm; font-family:Arial; font-size:1.7mm; color:#000; font-weight:400; }
+  .gap{ height:var(--gap-h); flex:none; }
+
+  .show-num .num{ display:block; }
+  .hide-num .num{ display:none; }
+  .show-div .label, .show-div .gap{ border-bottom:.15mm solid #ddd; }
+
+  .credit{ font-family:Arial, sans-serif; font-size:2.5mm; color:#000;
+           margin-top:8mm; padding-top:2mm; border-top:.2mm solid #ccc; }
+  .credit a{ color:#000; }
+
+  @media print{
+    body{ background:#fff; }
+    .panel{ display:none !important; }
+    .sheet{ margin:0; box-shadow:none; border-radius:0; padding:12mm; }
+    /* No size: declared. The page box adopts whatever paper is loaded,
+       so there is nothing for the driver to rescale. Prints 1:1 on A4
+       and US Letter alike — the sheet is 210mm wide, clearing both. */
+    @page{ margin:0; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>Avantis SoftKey &amp; Layer Label Generator</h1>
+  <p class="sub">Supplied by <a href="https://fohfoundry.com" target="_blank" rel="noopener">FOH Foundry</a> <span class="dim">· 17mm strip · 7.75mm key / 7.23mm gap / 14.98mm pitch</span></p>
+
+  <div class="card">
+    <h2>Console</h2>
+    <div class="devsel">
+      <div class="dev active" data-dev="solo">Avantis Solo<small>18 SoftKeys · 1 layer bank A–F</small></div>
+      <div class="dev" data-dev="avantis">Avantis<small>24 SoftKeys · 2 layer banks A–F</small></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>SoftKey labels</h2>
+    <div class="cols" id="skInputs"></div>
+  </div>
+
+  <div class="card">
+    <h2>Layer labels</h2>
+    <div class="cols" id="lyInputs"></div>
+  </div>
+
+  <div class="card">
+    <h2>Options</h2>
+    <div class="opts">
+      <label class="opt">Name size
+        <input type="range" id="size" min="2.2" max="4.0" step="0.1" value="3.2">
+        <span id="sizeVal" style="font-size:12px;color:#7f868f;width:30px;">3.2</span>mm
+      </label>
+      <span class="tgl" title="Preview only — does not affect the printed output">
+        <span class="lbl on" id="lblA4" data-set="a4">A4</span>
+        <label class="sw">
+          <input type="checkbox" id="paper" aria-label="Preview paper size">
+          <span class="track"></span>
+        </label>
+        <span class="lbl" id="lblUS" data-set="us">US Letter</span>
+      </span>
+      <label class="opt"><input type="checkbox" id="nums" checked> Key / layer badges</label>
+      <label class="opt"><input type="checkbox" id="divs"> Row guide lines</label>
+      <label class="opt"><input type="checkbox" id="pairs" checked> Pair strips</label>
+      <label class="opt"><input type="checkbox" id="layers" checked> Layer strips</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Print &amp; fit</h2>
+    <p class="note"><b>Critical:</b> print at <b>100% / Actual size</b>. Turn OFF "Fit to page" / "Shrink to fit" / any scaling, or the mm will be wrong.</p>
+    <ul class="tips">
+      <li>Measure the <b>100mm reference line</b> on the printout. If it isn't exactly 100mm, the printer is scaling — fix it and reprint.</li>
+      <li>Register each strip on <b>two points</b>: top edge to the top of its first key, bottom edge to the bottom of its last key.</li>
+      <li>Layer and pair strips use identical key height and gap, so they cut and register the same way.</li>
+      <li>The grey outline is the cut line for the 17mm strip.</li>
+      <li>Prints 1:1 on <b>A4 or US Letter</b>. The document declares no paper size, so the driver has nothing to rescale. The A4 / Letter switch changes the on-screen preview only.</li>
+    </ul>
+    <p style="margin-top:14px;"><button class="btn" onclick="window.print()">Print</button></p>
+  </div>
+</div>
+
+<div class="sheet show-num pv-a4" id="sheet">
+  <div class="ruler-wrap">
+    <div class="ruler-cap">SCALE CHECK — this line must measure 100mm</div>
+    <div class="ruler" id="ruler"><div class="base"></div></div>
+  </div>
+
+  <h3 id="sheetTitle"></h3>
+  <p class="meta" id="sheetMeta"></p>
+
+  <div class="strips" id="strips"></div>
+
+  <div class="credit">Supplied by <a href="https://fohfoundry.com">FOH Foundry</a> — fohfoundry.com</div>
+</div>
+
+<script>
+  const LH = 7.75, GH = 7.23;
+  const LETTERS = ["A","B","C","D","E","F"];
+
+  // Each console is a list of COLUMNS. A column is a vertical stack of BLOCKS.
+  //   {kind:'sk', start, count, pair?}   |   {kind:'ly', bank, cap}
+  const LAYOUTS = {
+    solo: {
+      label:"Avantis Solo",
+      cols: [
+        [ {kind:'sk', start:1,  count:8} ],
+        [ {kind:'sk', start:9,  count:8} ],
+        [ {kind:'sk', start:17, count:2, pair:true} ],
+        [ {kind:'ly', bank:"L1", cap:"LAYERS A\u2013F"} ]
+      ]
+    },
+    avantis: {
+      label:"Avantis",
+      cols: [
+        [ {kind:'sk', start:1,  count:6}  ],
+        [ {kind:'sk', start:7,  count:10} ],
+        [ {kind:'sk', start:17, count:2, pair:true}, {kind:'ly', bank:"L1", cap:"LAYERS A\u2013F"} ],
+        [ {kind:'sk', start:19, count:2, pair:true}, {kind:'ly', bank:"L2", cap:"LAYERS A\u2013F (2)"} ],
+        [ {kind:'sk', start:21, count:2, pair:true} ],
+        [ {kind:'sk', start:23, count:2, pair:true} ]
+      ]
+    }
+  };
+
+  const skBlocks = L => L.cols.flat().filter(b=>b.kind==='sk');
+  const lyBlocks = L => L.cols.flat().filter(b=>b.kind==='ly');
+
+  let device = 'solo';
+  const skNames = {};                    // keyed by softkey number, shared across consoles
+  const lyNames = {};                    // keyed by "device:bankId:letter"
+  ["KEYS","BASS","LEAD","GTR","DRUMS"].forEach((n,i)=> skNames[i+1]=n);
+
+  const lyKey = (bank,letter)=> `${device}:${bank}:${letter}`;
+  const stripH = c => (c*LH + (c-1)*GH).toFixed(2);
+
+  /* ---------- inputs ---------- */
+  function inputRow(badge, value, handler, maxlen){
+    const r=document.createElement('div');
+    r.className='row';
+    r.innerHTML = `<label>${badge}</label><input type="text" maxlength="${maxlen||14}" value="${value||''}">`;
+    r.querySelector('input').addEventListener('input', e=> handler(e.target.value));
+    return r;
+  }
+
+  function buildInputs(){
+    const L = LAYOUTS[device];
+    const groups = skBlocks(L);
+
+    const sk = document.getElementById('skInputs');
+    sk.innerHTML='';
+    groups.filter(g=>!g.pair).forEach(g=>{
+      const col=document.createElement('div'); col.className='colgrp';
+      col.innerHTML = `<h4>Keys ${g.start}\u2013${g.start+g.count-1}</h4>`;
+      for(let i=0;i<g.count;i++){ const n=g.start+i;
+        col.appendChild(inputRow(n, skNames[n], v=>{ skNames[n]=v; renderText(); })); }
+      sk.appendChild(col);
+    });
+    const pairs = groups.filter(g=>g.pair);
+    if(pairs.length){
+      const col=document.createElement('div'); col.className='colgrp';
+      col.innerHTML = `<h4>Pairs</h4>`;
+      pairs.forEach(g=>{ for(let i=0;i<g.count;i++){ const n=g.start+i;
+        col.appendChild(inputRow(n, skNames[n], v=>{ skNames[n]=v; renderText(); })); } });
+      sk.appendChild(col);
+    }
+
+    const ly = document.getElementById('lyInputs');
+    ly.innerHTML='';
+    lyBlocks(L).forEach(b=>{
+      const col=document.createElement('div'); col.className='colgrp';
+      col.innerHTML = `<h4>${b.cap}</h4>`;
+      LETTERS.forEach(ltr=>{
+        const k = lyKey(b.bank, ltr);
+        col.appendChild(inputRow(ltr, lyNames[k], v=>{ lyNames[k]=v; renderText(); }));
+      });
+      ly.appendChild(col);
+    });
+  }
+
+  /* ---------- strips ---------- */
+  function makeStrip(cap, cells){
+    const box=document.createElement('div'); box.className='stripbox';
+    const c=document.createElement('div'); c.className='striplab'; c.textContent=cap;
+    box.appendChild(c);
+    const s=document.createElement('div'); s.className='strip';
+    cells.forEach((cell,i)=>{
+      const lab=document.createElement('div'); lab.className='label';
+      lab.innerHTML = `<span class="num">${cell.badge}</span><span class="txt" data-t="${cell.id}"></span>`;
+      s.appendChild(lab);
+      if(i<cells.length-1){ const gp=document.createElement('div'); gp.className='gap'; s.appendChild(gp); }
+    });
+    box.appendChild(s);
+    return box;
+  }
+
+  function buildStrips(){
+    const L = LAYOUTS[device];
+    const showPairs  = document.getElementById('pairs').checked;
+    const showLayers = document.getElementById('layers').checked;
+
+    const wrap = document.getElementById('strips');
+    wrap.innerHTML='';
+    const counts = [];
+
+    L.cols.forEach(colDef=>{
+      const blocks = colDef.filter(b=>
+        (b.kind==='sk' && (!b.pair || showPairs)) ||
+        (b.kind==='ly' && showLayers)
+      );
+      if(!blocks.length) return;
+
+      const col = document.createElement('div'); col.className='col';
+      blocks.forEach((b,bi)=>{
+        let cap, cells;
+        if(b.kind==='sk'){
+          cap = b.count===2 ? `SK ${b.start}/${b.start+1}` : `SK ${b.start}\u2013${b.start+b.count-1}`;
+          cells = Array.from({length:b.count}, (_,i)=>({ badge:b.start+i, id:'sk'+(b.start+i) }));
+        } else {
+          cap = b.cap;
+          cells = LETTERS.map(ltr=>({ badge:ltr, id:'ly'+lyKey(b.bank,ltr) }));
+        }
+        col.appendChild(makeStrip(cap, cells));
+        counts.push(cells.length);
+        if(bi < blocks.length-1){
+          const g=document.createElement('div'); g.className='blockgap'; col.appendChild(g);
+        }
+      });
+      wrap.appendChild(col);
+    });
+
+    document.getElementById('sheetTitle').textContent = L.label + ' \u2014 SoftKey & Layer Strips';
+    const hs = [...new Set(counts.map(stripH))].sort((a,b)=>a-b);
+    document.getElementById('sheetMeta').textContent =
+      `17mm wide \u00b7 key 7.75mm \u00b7 gap 7.23mm \u00b7 pitch 14.98mm \u00b7 strip heights ${hs.join(' / ')} mm`;
+
+    renderText();
+  }
+
+  function renderText(){
+    document.querySelectorAll('.txt').forEach(t=>{
+      const id=t.dataset.t;
+      t.textContent = id.startsWith('sk')
+        ? (skNames[id.slice(2)] || '')
+        : (lyNames[id.slice(2)] || '');
+    });
+  }
+
+  /* ---------- ruler ---------- */
+  const ruler=document.getElementById('ruler');
+  for(let mm=0; mm<=100; mm+=10){
+    const t=document.createElement('div');
+    t.className='tick ' + (mm===50?'t50':'t10');
+    t.style.left = mm+'mm';
+    ruler.appendChild(t);
+  }
+
+  /* ---------- controls ---------- */
+  document.querySelectorAll('.dev').forEach(d=>{
+    d.addEventListener('click', ()=>{
+      document.querySelectorAll('.dev').forEach(x=>x.classList.remove('active'));
+      d.classList.add('active');
+      device = d.dataset.dev;
+      buildInputs(); buildStrips();
+    });
+  });
+
+  const sheet=document.getElementById('sheet');
+  document.getElementById('size').addEventListener('input', e=>{
+    document.documentElement.style.setProperty('--name-size', e.target.value+'mm');
+    document.getElementById('sizeVal').textContent = e.target.value;
+  });
+  document.getElementById('nums').addEventListener('change', e=>{
+    sheet.classList.toggle('show-num', e.target.checked);
+    sheet.classList.toggle('hide-num', !e.target.checked);
+  });
+  document.getElementById('divs').addEventListener('change', e=> sheet.classList.toggle('show-div', e.target.checked));
+  document.getElementById('pairs').addEventListener('change', buildStrips);
+  document.getElementById('layers').addEventListener('change', buildStrips);
+
+  /* ---------- preview paper (screen only) ---------- */
+  const paperTgl = document.getElementById('paper');
+  function applyPreview(){
+    const us = paperTgl.checked;
+    sheet.classList.toggle('pv-us', us);
+    sheet.classList.toggle('pv-a4', !us);
+    document.getElementById('lblA4').classList.toggle('on', !us);
+    document.getElementById('lblUS').classList.toggle('on', us);
+  }
+  paperTgl.addEventListener('change', applyPreview);
+  document.querySelectorAll('.tgl .lbl').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      paperTgl.checked = (el.dataset.set === 'us');
+      applyPreview();
+    });
+  });
+
+  applyPreview();
+  buildInputs();
+  buildStrips();
+</script>
+</body>
+</html>
